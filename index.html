@@ -1,0 +1,417 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Slickdeals Scraper</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; max-width: 800px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; }
+        h1 { color: #333; }
+        .input-group { display: flex; gap: 10px; margin-bottom: 2rem; }
+        input { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 16px; }
+        button { padding: 10px 20px; cursor: pointer; background-color: #007bff; color: white; border: none; border-radius: 4px; font-size: 16px; }
+        button:hover { background-color: #0056b3; }
+        button:disabled { background-color: #ccc; cursor: not-allowed; }
+        
+        .stats { margin-bottom: 1rem; font-weight: bold; color: #555; }
+        
+        .comment { border: 1px solid #eee; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.05); }
+        .comment.Featured { border-left: 5px solid #f0ad4e; background-color: #fffcf5; }
+        .comment.Main { border-left: 5px solid #5bc0de; background-color: #fbfdff; }
+        
+        .meta { display: flex; align-items: center; gap: 10px; margin-bottom: 0.5rem; font-size: 0.9em; color: #666; }
+        .author { font-weight: bold; color: #333; }
+        .date { color: #888; }
+        
+        .type-badge { padding: 2px 8px; border-radius: 12px; font-size: 0.75em; font-weight: bold; text-transform: uppercase; }
+        .Featured .type-badge { background: #f0ad4e; color: white; }
+        .Main .type-badge { background: #5bc0de; color: white; }
+        
+        .content { word-wrap: break-word; }
+        /* Handle some basic HTML from scraper if present */
+        .content p { margin: 0 0 0.5rem 0; }
+        .content a { color: #007bff; }
+
+        #loading { display: none; color: #666; text-align: center; margin: 2rem 0; }
+        #error { color: #dc3545; display: none; padding: 1rem; background: #f8d7da; border-radius: 4px; margin-bottom: 1rem; }
+        
+        .spinner { display: inline-block; width: 20px; height: 20px; border: 3px solid rgba(0,0,0,0.1); border-radius: 50%; border-top-color: #007bff; animation: spin 1s ease-in-out infinite; margin-right: 10px; vertical-align: middle; }
+        @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Tabs */
+        .tabs { display: flex; border-bottom: 1px solid #ccc; margin-bottom: 20px; }
+        .tab { padding: 10px 20px; cursor: pointer; border: 1px solid transparent; border-bottom: none; margin-bottom: -1px; }
+        .tab.active { border-color: #ccc; border-bottom-color: white; background: white; font-weight: bold; }
+        .tab-content { display: none; }
+        .tab-content.active { display: block; }
+
+        /* File List Table */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { text-align: left; padding: 12px; border-bottom: 1px solid #eee; }
+        th { background-color: #f8f9fa; font-weight: 600; }
+        tr:hover { background-color: #f5f5f5; }
+        .actions { display: flex; gap: 5px; }
+        .btn-sm { padding: 5px 10px; font-size: 12px; }
+        .btn-danger { background-color: #dc3545; }
+        .btn-danger:hover { background-color: #c82333; }
+        .btn-success { background-color: #28a745; }
+        .btn-success:hover { background-color: #218838; }
+    </style>
+</head>
+<body>
+    <h1>Slickdeals Comment Scraper</h1>
+    
+    <div class="tabs">
+        <div class="tab active" onclick="switchTab('scraper')">Scraper</div>
+        <div class="tab" onclick="switchTab('files')">Saved Deals</div>
+    </div>
+
+    <div id="scraper" class="tab-content active">
+        <div class="input-group">
+            <input type="text" id="urlInput" placeholder="Paste Slickdeals URL here..." value="https://slickdeals.net/f/18790633-new-mint-mobile-customers-256gb-pixel-10-pro-xl-smartphone-1-yr-unlimited-plan-579-more-free-shipping">
+            <input type="number" id="maxPagesInput" placeholder="Max Pages" value="10" style="max-width: 100px;">
+            <div style="display: flex; align-items: center; gap: 5px;">
+                <input type="checkbox" id="forceRefresh" style="width: auto;">
+                <label for="forceRefresh" style="white-space: nowrap;">Force Refresh</label>
+            </div>
+            <button onclick="scrape()" id="scrapeBtn">Scrape Comments</button>
+        </div>
+
+        <div id="error"></div>
+        <div id="loading"><div class="spinner"></div>Scraping comments... please wait...</div>
+        <div id="results"></div>
+    </div>
+
+    <div id="files" class="tab-content">
+        <div style="margin-bottom: 15px; display: flex; gap: 10px;">
+            <button onclick="loadFiles()" class="btn-sm">Refresh List</button>
+            <button onclick="deleteSelected()" class="btn-sm btn-danger">Delete Selected</button>
+            <button onclick="deleteAll()" class="btn-sm btn-danger" style="margin-left: auto;">Delete All</button>
+        </div>
+        <div id="fileList">Loading...</div>
+    </div>
+
+    <!-- Chat Modal -->
+    <div id="chatModal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5);">
+        <div style="background: white; width: 80%; max-width: 600px; margin: 50px auto; padding: 20px; border-radius: 8px; height: 80vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <h2 style="margin: 0;">Chat with Data</h2>
+                <button onclick="closeChat()" style="background: none; border: none; font-size: 20px; cursor: pointer;">&times;</button>
+            </div>
+            <div id="chatMessages" style="flex: 1; overflow-y: auto; border: 1px solid #eee; padding: 10px; margin-bottom: 10px; background: #f9f9f9;"></div>
+            <div style="margin-bottom: 10px;">
+                <input type="checkbox" id="useSummary" checked> 
+                <label for="useSummary" title="Generates a summary of comments first, then chats with that summary. Saves tokens but may miss details.">Use Summary (Saves Tokens)</label>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="chatInput" placeholder="Ask a question..." style="flex: 1;">
+                <button onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        async function scrape() {
+            const urlInput = document.getElementById('urlInput');
+            const btn = document.getElementById('scrapeBtn');
+            const resultsDiv = document.getElementById('results');
+            const loadingDiv = document.getElementById('loading');
+            const errorDiv = document.getElementById('error');
+
+            const url = urlInput.value.trim();
+            const maxPages = parseInt(document.getElementById('maxPagesInput').value) || 10;
+            const forceRefresh = document.getElementById('forceRefresh').checked;
+            if (!url) return;
+
+            // Reset UI
+            resultsDiv.innerHTML = '';
+            errorDiv.style.display = 'none';
+            errorDiv.textContent = '';
+            loadingDiv.style.display = 'block';
+            btn.disabled = true;
+
+            try {
+                const response = await fetch('/scrape', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ url: url, max_pages: maxPages, force_refresh: forceRefresh })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.detail || 'Failed to scrape');
+                }
+
+                const data = await response.json();
+                displayResults(data);
+            } catch (err) {
+                errorDiv.textContent = err.message;
+                errorDiv.style.display = 'block';
+            } finally {
+                loadingDiv.style.display = 'none';
+                btn.disabled = false;
+            }
+        }
+
+        function displayResults(data) {
+            const container = document.getElementById('results');
+            
+            const sourceBadge = data.source === 'cache' 
+                ? '<span style="background: #6c757d; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 10px;">Cached</span>' 
+                : '<span style="background: #28a745; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.8em; margin-left: 10px;">Fresh Scrape</span>';
+
+            const statsDiv = document.createElement('div');
+            statsDiv.className = 'stats';
+            statsDiv.innerHTML = `
+                Found ${data.count} comments. ${sourceBadge} <br>
+                <small>Saved to: scraped_data/${data.saved_to}</small>
+                <div style="margin-top: 10px;">
+                    <button onclick="openChat('${data.saved_to}')" style="background-color: #28a745;">Chat with this Data</button>
+                </div>
+            `;
+            container.appendChild(statsDiv);
+
+            if (data.count === 0) {
+                container.innerHTML += '<p>No comments found.</p>';
+                return;
+            }
+
+            data.comments.forEach(comment => {
+                const div = document.createElement('div');
+                div.className = `comment ${comment.type}`;
+                
+                // The text field from the scraper might contain HTML (e.g. <br>, links).
+                // We'll trust it for now but be careful in production.
+                // Since we are just displaying it, innerHTML is okay if we trust the source or sanitize.
+                // For this demo, we will just dump it.
+                
+                div.innerHTML = `
+                    <div class="meta">
+                        <span class="type-badge">${comment.type}</span>
+                        <span class="author">${escapeHtml(comment.author)}</span> 
+                        <span class="date">${escapeHtml(comment.date)}</span>
+                    </div>
+                    <div class="content">${comment.text}</div> 
+                `;
+                container.appendChild(div);
+            });
+        }
+
+        let currentFilename = '';
+        let chatHistory = [];
+
+        function openChat(filename) {
+            currentFilename = filename;
+            chatHistory = []; // Reset history
+            document.getElementById('chatModal').style.display = 'block';
+            document.getElementById('chatMessages').innerHTML = '<div class="message system">Ask me anything about the comments!</div>';
+            document.getElementById('useSummary').checked = true;
+        }
+
+        function closeChat() {
+            document.getElementById('chatModal').style.display = 'none';
+        }
+
+        async function sendMessage() {
+            const input = document.getElementById('chatInput');
+            const message = input.value.trim();
+            const useSummary = document.getElementById('useSummary').checked;
+            if (!message) return;
+
+            const chatMessages = document.getElementById('chatMessages');
+            
+            // User message
+            chatMessages.innerHTML += `<div class="message user"><strong>You:</strong> ${escapeHtml(message)}</div>`;
+            input.value = '';
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+
+            try {
+                const response = await fetch('/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        filename: currentFilename,
+                        message: message,
+                        history: chatHistory,
+                        use_summary: useSummary
+                    })
+                });
+
+                if (!response.ok) {
+                    const errData = await response.json();
+                    throw new Error(errData.detail || 'Failed to chat');
+                }
+
+                const data = await response.json();
+                // Bot message
+                // Simple markdown to html conversion for bolding
+                let botText = escapeHtml(data.response).replace(/\*\*(.*?)\*\*/g, '<b>$1</b>');
+                chatMessages.innerHTML += `<div class="message bot"><strong>Gemini:</strong> ${botText}</div>`;
+                
+                // Update history
+                chatHistory.push({ role: 'user', content: message });
+                chatHistory.push({ role: 'model', content: data.response });
+                
+            } catch (err) {
+                chatMessages.innerHTML += `<div class="message error">Error: ${err.message}</div>`;
+            }
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
+
+        function escapeHtml(text) {
+            if (!text) return '';
+            return text
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;")
+                .replace(/"/g, "&quot;")
+                .replace(/'/g, "&#039;");
+        }
+
+        // Tab Switching
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+            document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+            
+            // Find the tab element that called this function (simple way)
+            const tabs = document.querySelectorAll('.tab');
+            if (tabId === 'scraper') tabs[0].classList.add('active');
+            if (tabId === 'files') {
+                tabs[1].classList.add('active');
+                loadFiles();
+            }
+            
+            document.getElementById(tabId).classList.add('active');
+        }
+
+        // File Management
+        async function loadFiles() {
+            const listDiv = document.getElementById('fileList');
+            listDiv.innerHTML = '<div class="spinner"></div> Loading files...';
+            
+            try {
+                const response = await fetch('/files');
+                const files = await response.json();
+                
+                if (files.length === 0) {
+                    listDiv.innerHTML = '<p>No saved deals found.</p>';
+                    return;
+                }
+                
+                let html = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th style="width: 30px;"><input type="checkbox" onchange="toggleAllFiles(this)"></th>
+                                <th>Deal Title / Filename</th>
+                                <th>Modified</th>
+                                <th>Size</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+                
+                files.forEach(f => {
+                    const sizeKb = (f.size / 1024).toFixed(1) + ' KB';
+                    html += `
+                        <tr>
+                            <td><input type="checkbox" class="file-checkbox" value="${f.filename}"></td>
+                            <td>
+                                <div style="font-weight:bold;">${escapeHtml(f.title)}</div>
+                                <div style="font-size:0.8em; color:#888;">${f.filename}</div>
+                            </td>
+                            <td>${f.modified}</td>
+                            <td>${sizeKb}</td>
+                            <td class="actions">
+                                <button onclick="openChat('${f.filename}')" class="btn-sm btn-success">Chat</button>
+                                <button onclick="deleteFiles(['${f.filename}'])" class="btn-sm btn-danger">Delete</button>
+                            </td>
+                        </tr>
+                    `;
+                });
+                
+                html += '</tbody></table>';
+                listDiv.innerHTML = html;
+                
+            } catch (err) {
+                listDiv.innerHTML = `<p style="color:red">Error loading files: ${err.message}</p>`;
+            }
+        }
+
+        function toggleAllFiles(source) {
+            document.querySelectorAll('.file-checkbox').forEach(cb => cb.checked = source.checked);
+        }
+
+        async function deleteSelected() {
+            const selected = Array.from(document.querySelectorAll('.file-checkbox:checked')).map(cb => cb.value);
+            if (selected.length === 0) {
+                alert('No files selected');
+                return;
+            }
+            if (!confirm(`Are you sure you want to delete ${selected.length} files?`)) return;
+            await deleteFiles(selected);
+        }
+
+        async function deleteAll() {
+            if (!confirm('Are you sure you want to delete ALL saved deals? This cannot be undone.')) return;
+            
+            try {
+                const response = await fetch('/delete_all_files', { method: 'POST' });
+                const result = await response.json();
+                alert(`Deleted ${result.deleted} files.`);
+                loadFiles();
+            } catch (err) {
+                alert('Error deleting files: ' + err.message);
+            }
+        }
+
+        async function deleteFiles(filenames) {
+            try {
+                const response = await fetch('/delete_files', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ filenames: filenames })
+                });
+                const result = await response.json();
+                
+                if (result.errors.length > 0) {
+                    alert('Errors occurred:\n' + result.errors.join('\n'));
+                }
+                
+                loadFiles(); // Refresh list
+            } catch (err) {
+                alert('Error deleting files: ' + err.message);
+            }
+        }
+        
+        // Allow Enter key to submit
+        document.getElementById('urlInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                scrape();
+            }
+        });
+        
+        document.getElementById('chatInput').addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                sendMessage();
+            }
+        });
+
+        // Close modal when clicking outside
+        window.onclick = function(event) {
+            const modal = document.getElementById('chatModal');
+            if (event.target == modal) {
+                closeChat();
+            }
+        }
+
+        // Close modal on Escape key
+        document.addEventListener('keydown', function(event) {
+            if (event.key === "Escape") {
+                closeChat();
+            }
+        });
+    </script>
+</body>
+</html>
