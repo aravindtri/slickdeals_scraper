@@ -56,10 +56,41 @@
         .btn-danger:hover { background-color: #c82333; }
         .btn-success { background-color: #28a745; }
         .btn-success:hover { background-color: #218838; }
+
+        /* Mobile Responsiveness */
+        @media (max-width: 600px) {
+            body { margin: 1rem auto; padding: 0 10px; }
+            
+            .input-group { flex-direction: column; gap: 10px; }
+            .input-group input, .input-group button { width: 100%; box-sizing: border-box; }
+            .input-group div { width: 100%; margin-bottom: 5px; }
+            
+            /* Chat Modal Mobile */
+            #chatModal > div { 
+                width: 95% !important; 
+                height: 90vh !important; 
+                margin: 20px auto !important; 
+                max-width: none !important;
+            }
+            
+            /* Table Mobile */
+            #fileList { overflow-x: auto; }
+            table { min-width: 500px; } /* Force scroll if too small */
+            
+            .actions { flex-direction: column; }
+            .btn-sm { width: 100%; margin-bottom: 2px; }
+            
+            /* Tabs Mobile */
+            .tabs { overflow-x: auto; white-space: nowrap; }
+            .tab { padding: 10px 15px; }
+        }
     </style>
 </head>
 <body>
-    <h1>Slickdeals Comment Scraper</h1>
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+        <h1 style="margin: 0;">Slickdeals Comment Scraper</h1>
+        <button onclick="showModels()" class="btn-sm" style="background-color: #6c757d;">Show Models</button>
+    </div>
     
     <div class="tabs">
         <div class="tab active" onclick="switchTab('scraper')">Scraper</div>
@@ -106,6 +137,22 @@
             <div style="display: flex; gap: 10px;">
                 <input type="text" id="chatInput" placeholder="Ask a question..." style="flex: 1;">
                 <button onclick="sendMessage()">Send</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Models Modal -->
+    <div id="modelsModal" style="display:none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 1000;">
+        <div style="background: white; width: 80%; max-width: 500px; margin: 100px auto; padding: 20px; border-radius: 8px; max-height: 80vh; display: flex; flex-direction: column;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 10px;">
+                <h2 style="margin: 0;">Available Gemini Models</h2>
+                <button onclick="closeModels()" style="background: none; border: none; font-size: 20px; cursor: pointer;">&times;</button>
+            </div>
+            <div id="modelsList" style="flex: 1; overflow-y: auto; padding: 10px; border: 1px solid #eee; background: #f9f9f9;">
+                Loading...
+            </div>
+            <div style="margin-top: 10px; font-size: 0.8em; color: #666;">
+                Current configured model: <span id="currentModel" style="font-weight: bold;">Loading...</span>
             </div>
         </div>
     </div>
@@ -404,14 +451,55 @@
             if (event.target == modal) {
                 closeChat();
             }
+            const modelsModal = document.getElementById('modelsModal');
+            if (event.target == modelsModal) {
+                closeModels();
+            }
         }
 
         // Close modal on Escape key
         document.addEventListener('keydown', function(event) {
             if (event.key === "Escape") {
                 closeChat();
+                closeModels();
             }
         });
+
+        async function showModels() {
+            document.getElementById('modelsModal').style.display = 'block';
+            const listDiv = document.getElementById('modelsList');
+            const currentSpan = document.getElementById('currentModel');
+            
+            listDiv.innerHTML = '<div class="spinner"></div> Loading...';
+            
+            try {
+                const response = await fetch('/models');
+                const data = await response.json();
+                
+                if (data.detail) {
+                    listDiv.innerHTML = `<div style="color:red">Error: ${data.detail}</div>`;
+                    return;
+                }
+                
+                let html = '<ul style="list-style: none; padding: 0;">';
+                data.models.forEach(m => {
+                    const isCurrent = m === data.current_model;
+                    const style = isCurrent ? 'font-weight: bold; color: #28a745; background: #e8f5e9;' : '';
+                    const marker = isCurrent ? ' (Current)' : '';
+                    html += `<li style="padding: 8px; border-bottom: 1px solid #eee; ${style}">${m}${marker}</li>`;
+                });
+                html += '</ul>';
+                listDiv.innerHTML = html;
+                currentSpan.textContent = data.current_model;
+
+            } catch (err) {
+                listDiv.innerHTML = `<div style="color:red">Failed to load models: ${err.message}</div>`;
+            }
+        }
+
+        function closeModels() {
+            document.getElementById('modelsModal').style.display = 'none';
+        }
     </script>
 </body>
 </html>

@@ -9,3 +9,10 @@ services:
       - ./scraped_data:/app/scraped_data
     environment:
       - GOOGLE_API_KEY=${GOOGLE_API_KEY}
+      # Available Models (Partial List):
+      # - gemini-2.0-flash (Balanced, High Performance - Default)
+      # - gemini-2.0-flash-lite-preview-02-05 (Lightweight, Fast)
+      # - gemini-2.0-pro-exp-02-05 (Experimental Pro, High Intelligence)
+      # - gemini-1.5-flash (Stable, Cost effective)
+      # - gemini-1.5-pro (Stable, High Intelligence)
+      - GEMINI_MODEL=gemini-3-pro-preview

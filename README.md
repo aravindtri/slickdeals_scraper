@@ -39,6 +39,66 @@ A powerful tool to scrape Slickdeals threads, save them locally, and chat with t
 4.  **Access the App**
     Open your browser and go to: `http://localhost:8000`
 
+## Configuration
+
+You can configure the application using environment variables in `docker-compose.yml` or a `.env` file.
+
+*   `GOOGLE_API_KEY`: Your Google Gemini API Key.
+*   `GEMINI_MODEL`: The Gemini model to use for chat and summarization. Default is `gemini-2.0-flash`.
+
+### Available Models
+
+You can use any of the following model names for `GEMINI_MODEL`. Note that model availability may vary by region and API access level.
+
+**Gemini 3 (Preview)**
+*   `gemini-3-pro-preview`
+*   `gemini-3-pro-image-preview`
+
+**Gemini 2.5 (Latest/Preview)**
+*   `gemini-2.5-flash`
+*   `gemini-2.5-pro`
+*   `gemini-2.5-flash-lite`
+*   `gemini-2.5-flash-image`
+*   `gemini-2.5-flash-image-preview`
+*   `gemini-2.5-flash-preview-tts`
+*   `gemini-2.5-pro-preview-tts`
+*   `gemini-2.5-flash-preview-09-2025`
+*   `gemini-2.5-flash-lite-preview-09-2025`
+*   `gemini-2.5-computer-use-preview-10-2025`
+
+**Gemini 2.0**
+*   `gemini-2.0-flash` (Default)
+*   `gemini-2.0-flash-lite`
+*   `gemini-2.0-pro-exp`
+*   `gemini-2.0-flash-exp`
+*   `gemini-2.0-flash-001`
+*   `gemini-2.0-flash-lite-001`
+*   `gemini-2.0-flash-lite-preview`
+*   `gemini-2.0-flash-lite-preview-02-05`
+*   `gemini-2.0-pro-exp-02-05`
+*   `gemini-2.0-flash-exp-image-generation`
+*   `learnlm-2.0-flash-experimental`
+
+**Gemini 1.5 & Aliases**
+*   `gemini-flash-latest`
+*   `gemini-flash-lite-latest`
+*   `gemini-pro-latest`
+*   `gemini-1.5-flash`
+*   `gemini-1.5-pro`
+
+**Gemma Models**
+*   `gemma-3-1b-it`
+*   `gemma-3-4b-it`
+*   `gemma-3-12b-it`
+*   `gemma-3-27b-it`
+*   `gemma-3n-e4b-it`
+*   `gemma-3n-e2b-it`
+
+**Experimental / Other**
+*   `gemini-exp-1206`
+*   `nano-banana-pro-preview`
+*   `gemini-robotics-er-1.5-preview`
+
 ## Usage
 
 1.  **Paste a URL**: Copy a Slickdeals thread URL (e.g., `https://slickdeals.net/f/12345...`).

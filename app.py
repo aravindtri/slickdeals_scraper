@@ -40,6 +40,24 @@ class ChatRequest(BaseModel):
 class DeleteRequest(BaseModel):
     filenames: List[str]
 
+@app.get("/models")
+async def get_models():
+    if "GOOGLE_API_KEY" not in os.environ:
+         raise HTTPException(status_code=500, detail="GOOGLE_API_KEY environment variable not set")
+    try:
+        models = []
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                name = m.name
+                if name.startswith("models/"):
+                    name = name.replace("models/", "")
+                models.append(name)
+        
+        current_model = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+        return {"models": models, "current_model": current_model}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
 @app.get("/files")
 async def list_files():
     output_dir = os.path.join(os.path.dirname(__file__), "scraped_data")
@@ -157,7 +175,8 @@ async def chat_with_data(request: ChatRequest):
             {comments_full}
             """
             try:
-                model = genai.GenerativeModel('gemini-2.0-flash')
+                model_name = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+                model = genai.GenerativeModel(model_name)
                 summary_resp = model.generate_content(summary_prompt)
                 summary_text = summary_resp.text
                 
@@ -189,7 +208,8 @@ async def chat_with_data(request: ChatRequest):
     Answer the user's questions based on the deal details and the user comments.
     """
 
-    model = genai.GenerativeModel('gemini-2.0-flash')
+    model_name = os.environ.get("GEMINI_MODEL", "gemini-2.0-flash")
+    model = genai.GenerativeModel(model_name)
     
     # Construct chat history for the model
     gemini_history = []
